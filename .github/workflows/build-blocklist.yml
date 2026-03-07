@@ -5,6 +5,9 @@ on:
     # 21:00 UTC = 00:00 GMT+3
     - cron: '0 21 * * *'
   workflow_dispatch: # allows manual trigger
+  
+permissions:
+  contents: write
 
 jobs:
   build:
