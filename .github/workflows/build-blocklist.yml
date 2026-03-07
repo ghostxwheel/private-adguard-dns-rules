@@ -23,7 +23,7 @@ jobs:
 
       # Step 3: Install hostlist-compiler globally
       - name: Install Hostlist Compiler
-        run: npm install -g hostlist-compiler
+        run: npm install -g @adguard/hostlist-compiler
 
       # Step 4: Clean old hostlist files
       - name: Clean hostlists folder
