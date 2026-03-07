@@ -45,7 +45,7 @@
     {"name":"Remote rules","source":"https://reddestdream.github.io/Projects/MinimalHosts/etc/MinimalHostsBlocker/minimalhosts","type":"hosts"},
     {"name":"Remote rules","source":"https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt","type":"hosts"},
     {"name":"Remote rules","source":"https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt","type":"hosts"},
-    {"name":"Remote rules","source":"hostlists/lists.disconnect.me_simple_tracking.txt","type":"hosts"},
+    {"name":"Local rules","source":"hostlists/lists.disconnect.me_simple_tracking.txt","type":"hosts"},
     {"name":"Remote rules","source":"https://someonewhocares.org/hosts/zero/hosts","type":"hosts"},
     {"name":"Remote rules","source":"https://v.firebog.net/hosts/AdguardDNS.txt","type":"hosts"},
     {"name":"Remote rules","source":"https://v.firebog.net/hosts/Easylist.txt","type":"hosts"},
@@ -53,7 +53,7 @@
     {"name":"Remote rules","source":"https://v.firebog.net/hosts/Prigent-Ads.txt","type":"hosts"},
     {"name":"Remote rules","source":"https://v.firebog.net/hosts/Prigent-Malware.txt","type":"hosts"},
     {"name":"Remote rules","source":"https://v.firebog.net/hosts/static/w3kbl.txt","type":"hosts"},
-    {"name":"Remote rules","source":"https://adblock.mahakala.is","type":"hosts"},
+    {"name":"Local rules","source":"hostlists/adblock.mahakala.is.txt","type":"hosts"},
     {"name":"Remote rules","source":"http://hostsfile.mine.nu/hosts0.txt","type":"hosts"}
   ],
   "transformations": ["Deduplicate", "Compress"]

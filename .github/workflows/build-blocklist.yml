@@ -36,6 +36,7 @@ jobs:
         run: |
           curl -sSL https://sysctl.org/cameleon/hosts -o hostlists/cameleon_hosts.txt
           curl -sSL https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt -o hostlists/lists.disconnect.me_simple_tracking.txt
+          curl -sSL https://adblock.mahakala.is -o hostlists/adblock.mahakala.is.txt
 
       # 5. Compile hostlist using static configuration.json
       - name: Compile hostlist
