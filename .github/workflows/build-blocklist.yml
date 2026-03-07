@@ -1,0 +1,57 @@
+name: Hostlist Compiler
+
+on:
+  schedule:
+    # 21:00 UTC = 00:00 GMT+3
+    - cron: '0 21 * * *'
+  workflow_dispatch: # allows manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      # Step 3: Install hostlist-compiler globally
+      - name: Install Hostlist Compiler
+        run: npm install -g hostlist-compiler
+
+      # Step 4: Clean old hostlist files
+      - name: Clean hostlists folder
+        run: |
+          rm -rf hostlists
+          mkdir -p hostlists
+
+      # Step 4: Fetch remote rules and normalize
+      - name: Fetch remote rules
+        run: |
+          curl -sSL https://sysctl.org/cameleon/hosts -o hostlists/cameleon_hosts.txt
+          curl -sSL https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt -o hostlists/lists.disconnect.me_simple_tracking.txt
+
+      # 5. Compile hostlist using static configuration.json
+      - name: Compile hostlist
+        run: hostlist-compiler -c configuration.json -o dns-blacklist.txt
+
+      # 6. Commit and push only if dns-blacklist.txt changed
+      - name: Commit and push changes if any
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dns-blacklist.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Update dns-blacklist.txt"
+            git push
+          else
+            echo "No changes detected in dns-blacklist.txt, skipping commit."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
