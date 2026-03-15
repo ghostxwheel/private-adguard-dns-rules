@@ -56,5 +56,5 @@
     {"name":"Local rules","source":"hostlists/adblock.mahakala.is.txt","type":"hosts"},
     {"name":"Remote rules","source":"http://hostsfile.mine.nu/hosts0.txt","type":"hosts"}
   ],
-  "transformations": ["Deduplicate", "Compress"]
+  "transformations": ["RemoveComments", "Deduplicate", "Compress"]
 }
