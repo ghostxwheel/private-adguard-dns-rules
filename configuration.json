@@ -41,7 +41,6 @@
     {"name":"Remote rules","source":"https://raw.githubusercontent.com/StevenBlack/hosts/master/data/add.Spam/hosts","type":"hosts"},
     {"name":"Remote rules","source":"https://raw.githubusercontent.com/StevenBlack/hosts/master/data/KADhosts/hosts","type":"hosts"},
     {"name":"Remote rules","source":"https://raw.githubusercontent.com/StevenBlack/hosts/master/data/UncheckyAds/hosts","type":"hosts"},
-    {"name":"Remote rules","source":"https://raw.githubusercontent.com/vokins/yhosts/master/hosts","type":"hosts"},
     {"name":"Remote rules","source":"https://reddestdream.github.io/Projects/MinimalHosts/etc/MinimalHostsBlocker/minimalhosts","type":"hosts"},
     {"name":"Remote rules","source":"https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt","type":"hosts"},
     {"name":"Remote rules","source":"https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt","type":"hosts"},
