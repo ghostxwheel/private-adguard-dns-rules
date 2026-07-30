@@ -1,0 +1,7 @@
+node_modules/
+
+# Working directory for scripts/fetch-remote-rules.js, regenerated each run
+hostlists/
+
+# Leftover temp file if scripts/normalize-blacklist.js is interrupted mid-run
+dns-blacklist.txt.tmp

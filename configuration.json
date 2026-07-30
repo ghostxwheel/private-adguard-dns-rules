@@ -54,5 +54,5 @@
     {"name":"Remote rules","source":"https://v.firebog.net/hosts/static/w3kbl.txt","type":"hosts"},
     {"name":"Local rules","source":"hostlists/adblock.mahakala.is.txt","type":"hosts"}
   ],
-  "transformations": ["RemoveComments", "Deduplicate", "Compress"]
+  "transformations": []
 }

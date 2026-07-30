@@ -30,16 +30,14 @@ jobs:
         with:
           node-version: '22'
 
-      # Step 3: Install hostlist-compiler globally
-      - name: Install Hostlist Compiler
-        run: npm install -g @adguard/hostlist-compiler
-
-      # Step 3b: Install Playwright + Chromium (used to fetch remote rules via
-      # a real browser, since adblock.mahakala.is requires passing a
-      # Cloudflare JS challenge that plain curl can't solve)
-      - name: Install Playwright
+      # Step 3: Install dependencies (@adguard/hostlist-compiler is installed
+      # locally, not globally, since scripts/normalize-blacklist.js requires
+      # its rule-parsing utilities directly; Playwright drives the headless
+      # browser used to fetch remote rules, since adblock.mahakala.is
+      # requires passing a Cloudflare JS challenge that plain curl can't)
+      - name: Install dependencies
         run: |
-          npm install playwright
+          npm install
           npx playwright install --with-deps chromium
 
       # Step 4: Clean old hostlist files
@@ -52,13 +50,22 @@ jobs:
       - name: Fetch remote rules
         run: node scripts/fetch-remote-rules.js
 
-      # Step 6: Compile hostlist
+      # Step 6: Compile hostlist. transformations is [] in configuration.json -
+      # this just fetches and concatenates sources; scripts/normalize-blacklist.js
+      # does the comment-stripping/canonicalization/dedup/compression work that
+      # hostlist-compiler's own RemoveComments+Compress+Deduplicate transforms
+      # would otherwise do. Its Compress implementation discards redundant
+      # subdomain rules via Array.splice() in a loop, which is O(n^2) - fine
+      # for a few hundred thousand rules, but it doesn't finish within 10
+      # minutes on lists this size (millions of rules). normalize-blacklist.js
+      # does the equivalent work with a Set + filter() in under a minute.
       - name: Compile hostlist
-        run: hostlist-compiler -c configuration.json -o dns-blacklist.txt
+        run: npx hostlist-compiler -c configuration.json -o dns-blacklist.txt
 
       # Step 6b: Normalize dns-blacklist.txt - strip comment/separator lines,
-      # convert leftover "domain #comment" entries to "||domain^", and
-      # dedupe anything that collides once normalized
+      # expand /etc/hosts-style and bare-domain lines into "||domain^" rules,
+      # convert leftover "domain #comment" entries, discard rules for
+      # subdomains already covered by a parent-domain rule, and dedupe
       - name: Normalize and deduplicate blocklist
         run: node scripts/normalize-blacklist.js
 

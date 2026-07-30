@@ -35,13 +35,40 @@ function looksBlocked(text) {
 }
 
 async function fetchOne(browser, { url, out }) {
-  const page = await browser.newPage({ userAgent: USER_AGENT });
+  const context = await browser.newContext({ userAgent: USER_AGENT, acceptDownloads: true });
+  const page = await context.newPage();
+
+  // Some hosts (e.g. sysctl.org, and mahakala.is once its Cloudflare
+  // challenge clears) serve the list with headers that make Chromium treat
+  // it as a file download rather than a navigable page - page.goto() then
+  // rejects with "Download is starting" instead of completing. Catch that
+  // via the 'download' event and read the saved file straight off disk.
+  let download = null;
+  page.once('download', (d) => {
+    download = d;
+  });
+
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
-    // Gives Cloudflare-style JS challenges (e.g. mahakala.is) time to resolve
-    // and auto-redirect; harmless no-op wait for plain-text sources.
-    await page.waitForTimeout(8000);
-    const text = await page.evaluate(() => document.body.innerText);
+    try {
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+    } catch (err) {
+      if (!/Download is starting/.test(err.message)) throw err;
+    }
+
+    // The 'download' event can arrive slightly after goto()'s promise
+    // settles, so give it a moment to land before checking the flag.
+    await page.waitForTimeout(1500);
+
+    let text;
+    if (download) {
+      const path = await download.path();
+      text = fs.readFileSync(path, 'utf8');
+    } else {
+      // Gives Cloudflare-style JS challenges time to resolve and
+      // auto-redirect; harmless no-op wait for plain pages.
+      await page.waitForTimeout(6500);
+      text = await page.evaluate(() => document.body.innerText);
+    }
 
     if (looksBlocked(text)) {
       console.error(
@@ -57,7 +84,7 @@ async function fetchOne(browser, { url, out }) {
     console.error(`[fetch-remote-rules] ${url}: fetch failed (${err.message}). Writing empty file.`);
     fs.writeFileSync(out, '');
   } finally {
-    await page.close();
+    await context.close();
   }
 }
 
