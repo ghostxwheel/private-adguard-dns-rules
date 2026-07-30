@@ -27,7 +27,24 @@ rm -rf hostlists
 mkdir -p hostlists
 
 node scripts/fetch-remote-rules.js
-npx hostlist-compiler -c configuration.json -o dns-blacklist.txt
+
+# hostlist-compiler fetches ~38 sources directly (not through
+# fetch-remote-rules.js's own retry/graceful-degradation handling), and
+# aborts the whole compile on the first transient failure from any of
+# them (seen in practice: a one-off 503 from a source that was back to a
+# normal 200 on the very next attempt). Retry a few times before giving up.
+attempt=1
+max_attempts=3
+until npx hostlist-compiler -c configuration.json -o dns-blacklist.txt; do
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "hostlist-compiler failed after $max_attempts attempts, giving up" >&2
+    exit 1
+  fi
+  attempt=$((attempt + 1))
+  echo "hostlist-compiler failed, retrying ($attempt/$max_attempts) in 30s..." >&2
+  sleep 30
+done
+
 node scripts/normalize-blacklist.js
 
 git config user.name "radxa-hostlist-bot"
