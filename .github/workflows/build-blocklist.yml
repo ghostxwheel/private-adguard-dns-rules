@@ -34,23 +34,33 @@ jobs:
       - name: Install Hostlist Compiler
         run: npm install -g @adguard/hostlist-compiler
 
+      # Step 3b: Install Playwright + Chromium (used to fetch remote rules via
+      # a real browser, since adblock.mahakala.is requires passing a
+      # Cloudflare JS challenge that plain curl can't solve)
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
+
       # Step 4: Clean old hostlist files
       - name: Clean hostlists folder
         run: |
           rm -rf hostlists
           mkdir -p hostlists
 
-      # Step 5: Fetch remote rules
+      # Step 5: Fetch remote rules (via headless browser)
       - name: Fetch remote rules
-        run: |
-          curl -sSL https://sysctl.org/cameleon/hosts -o hostlists/cameleon_hosts.txt
-          curl -sSL https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt -o hostlists/lists.disconnect.me_simple_tracking.txt
-          curl -sSL https://adblock.mahakala.is -o hostlists/adblock.mahakala.is.txt
-          curl -sSL https://phishing.army/download/phishing_army_blocklist_extended.txt -o hostlists/phishing_army_blocklist_extended.txt
+        run: node scripts/fetch-remote-rules.js
 
       # Step 6: Compile hostlist
       - name: Compile hostlist
         run: hostlist-compiler -c configuration.json -o dns-blacklist.txt
+
+      # Step 6b: Normalize dns-blacklist.txt - strip comment/separator lines,
+      # convert leftover "domain #comment" entries to "||domain^", and
+      # dedupe anything that collides once normalized
+      - name: Normalize and deduplicate blocklist
+        run: node scripts/normalize-blacklist.js
 
       # Step 7: Commit and push only if dns-blacklist.txt changed
       - name: Commit and push changes if any
