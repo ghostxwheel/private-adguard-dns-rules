@@ -1,10 +1,14 @@
-// Fetches all "Remote rules" hostlist sources that the workflow used to grab
-// with plain curl. Moved to a headless browser for all of them (not just
-// adblock.mahakala.is) so every source goes through one consistent path,
-// and so any source that starts sitting behind Cloudflare/JS-challenge
-// protection in the future degrades gracefully instead of silently
-// committing an HTML challenge page as a "rule".
-const { chromium } = require('playwright');
+// Fetches all "Remote rules" hostlist sources with plain HTTP requests.
+//
+// adblock.mahakala.is serves a Cloudflare "Just a moment..." challenge page
+// to bare `curl` (no headers), which looked like it needed a real browser to
+// solve - but it doesn't: the challenge is triggered purely by the request
+// looking bot-like (missing User-Agent/Accept headers), not by any actual
+// JS/compute check. A normal browser User-Agent + Accept headers gets a
+// real 200 response with the full list, confirmed directly against the
+// live site. Same for sysctl.org, which a headless-browser fetch mishandled
+// (page.goto() treated its response as a file download) but plain HTTP
+// never had any problem with.
 const fs = require('fs');
 
 const SOURCES = [
@@ -20,8 +24,12 @@ const SOURCES = [
   },
 ];
 
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
 
 function looksBlocked(text) {
   if (!text || text.length < 100) return true;
@@ -34,45 +42,19 @@ function looksBlocked(text) {
   );
 }
 
-async function fetchOne(browser, { url, out }) {
-  const context = await browser.newContext({ userAgent: USER_AGENT, acceptDownloads: true });
-  const page = await context.newPage();
-
-  // Some hosts (e.g. sysctl.org, and mahakala.is once its Cloudflare
-  // challenge clears) serve the list with headers that make Chromium treat
-  // it as a file download rather than a navigable page - page.goto() then
-  // rejects with "Download is starting" instead of completing. Catch that
-  // via the 'download' event and read the saved file straight off disk.
-  let download = null;
-  page.once('download', (d) => {
-    download = d;
-  });
-
+async function fetchOne({ url, out }) {
   try {
-    try {
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
-    } catch (err) {
-      if (!/Download is starting/.test(err.message)) throw err;
+    const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(60000) });
+    if (!res.ok) {
+      console.error(`[fetch-remote-rules] ${url}: HTTP ${res.status}. Writing empty file.`);
+      fs.writeFileSync(out, '');
+      return;
     }
 
-    // The 'download' event can arrive slightly after goto()'s promise
-    // settles, so give it a moment to land before checking the flag.
-    await page.waitForTimeout(1500);
-
-    let text;
-    if (download) {
-      const path = await download.path();
-      text = fs.readFileSync(path, 'utf8');
-    } else {
-      // Gives Cloudflare-style JS challenges time to resolve and
-      // auto-redirect; harmless no-op wait for plain pages.
-      await page.waitForTimeout(6500);
-      text = await page.evaluate(() => document.body.innerText);
-    }
-
+    const text = await res.text();
     if (looksBlocked(text)) {
       console.error(
-        `[fetch-remote-rules] ${url}: got ${text ? text.length : 0} chars, looks blocked/invalid. Writing empty file.`,
+        `[fetch-remote-rules] ${url}: got ${text.length} chars, looks blocked/invalid. Writing empty file.`,
       );
       fs.writeFileSync(out, '');
       return;
@@ -83,15 +65,9 @@ async function fetchOne(browser, { url, out }) {
   } catch (err) {
     console.error(`[fetch-remote-rules] ${url}: fetch failed (${err.message}). Writing empty file.`);
     fs.writeFileSync(out, '');
-  } finally {
-    await context.close();
   }
 }
 
 (async () => {
-  const browser = await chromium.launch();
-  for (const source of SOURCES) {
-    await fetchOne(browser, source);
-  }
-  await browser.close();
+  await Promise.all(SOURCES.map(fetchOne));
 })();

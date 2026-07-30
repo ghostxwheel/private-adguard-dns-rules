@@ -30,15 +30,11 @@ jobs:
         with:
           node-version: '22'
 
-      # Step 3: Install dependencies (@adguard/hostlist-compiler is installed
+      # Step 3: Install dependencies. @adguard/hostlist-compiler is installed
       # locally, not globally, since scripts/normalize-blacklist.js requires
-      # its rule-parsing utilities directly; Playwright drives the headless
-      # browser used to fetch remote rules, since adblock.mahakala.is
-      # requires passing a Cloudflare JS challenge that plain curl can't)
+      # its rule-parsing utilities directly.
       - name: Install dependencies
-        run: |
-          npm install
-          npx playwright install --with-deps chromium
+        run: npm install
 
       # Step 4: Clean old hostlist files
       - name: Clean hostlists folder
@@ -46,7 +42,10 @@ jobs:
           rm -rf hostlists
           mkdir -p hostlists
 
-      # Step 5: Fetch remote rules (via headless browser)
+      # Step 5: Fetch remote rules. adblock.mahakala.is serves a Cloudflare
+      # challenge page to requests that look bot-like (e.g. bare curl with no
+      # headers), but a normal browser User-Agent + Accept headers is enough
+      # to get through - no real browser/JS execution needed.
       - name: Fetch remote rules
         run: node scripts/fetch-remote-rules.js
 
