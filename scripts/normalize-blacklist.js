@@ -30,6 +30,10 @@ const INPUT = process.argv[2] || 'dns-blacklist.txt';
 const OUTPUT = process.argv[3] || 'dns-blacklist.txt';
 const TMP = `${OUTPUT}.tmp`;
 
+const ADBLOCK_RULE_RE = /^(@@)?\|\|[a-z0-9_*.-]+\^(\$[a-z0-9,=~|_.-]+)?$/i;
+// At least two labels, letters/digits/hyphen/underscore only, max 253 chars.
+const LOOSE_HOSTNAME_RE = /^(?=.{1,253}$)([a-z0-9_-]{1,63}\.)+[a-z0-9_-]{1,63}$/i;
+
 // Mirrors compress.js's extractHostnames(): "a.b.c" -> ["a.b.c", "b.c", "c"]
 function parentChain(hostname) {
   const parts = hostname.split('.');
@@ -55,7 +59,10 @@ async function main() {
     convertedInlineComment: 0,
     alreadyAdblock: 0,
     passedThrough: 0,
+    looseHostname: 0,
+    droppedInvalid: 0,
   };
+  const invalidSamples = [];
 
   // entries preserves original encounter order; each item is either
   // { host: 'example.com' } (compressible, subject to redundancy check)
@@ -136,8 +143,26 @@ async function main() {
       }
     }
 
-    stats.passedThrough++;
-    addRaw(line);
+    // Anything left is only kept if it's a well-formed adblock network rule
+    // (e.g. "@@||example.com^" or "||example.com^$important") or a hostname
+    // that isJustDomain rejects only for an underscore ("fb_servpub-a.akamaihd.net").
+    // Everything else is dropped rather than passed through: a source that
+    // returns an HTML page instead of a list (adblock.mahakala.is did) would
+    // otherwise inject markup/JS into the output, and some lists contain bare
+    // words ("club", "date") or header text that aren't hostnames at all.
+    const trimmed = line.trim();
+    if (ADBLOCK_RULE_RE.test(trimmed)) {
+      stats.passedThrough++;
+      addRaw(trimmed);
+      continue;
+    }
+    if (LOOSE_HOSTNAME_RE.test(trimmed)) {
+      stats.looseHostname++;
+      addHost(trimmed);
+      continue;
+    }
+    stats.droppedInvalid++;
+    if (invalidSamples.length < 10) invalidSamples.push(trimmed.slice(0, 120));
   }
 
   // Redundancy pass: discard a host if any of its parent domains (not
@@ -180,7 +205,12 @@ async function main() {
   console.log('[normalize-blacklist] /etc/hosts-style lines expanded:', stats.etcHostsExpanded);
   console.log('[normalize-blacklist] bare "just domain" lines:', stats.justDomain);
   console.log('[normalize-blacklist] converted "domain #comment" lines:', stats.convertedInlineComment);
-  console.log('[normalize-blacklist] passed through unrecognized lines:', stats.passedThrough);
+  console.log('[normalize-blacklist] kept adblock rules with modifiers/exceptions:', stats.passedThrough);
+  console.log('[normalize-blacklist] loose hostnames (e.g. underscores):', stats.looseHostname);
+  console.log('[normalize-blacklist] dropped invalid lines:', stats.droppedInvalid);
+  if (invalidSamples.length > 0) {
+    console.log('[normalize-blacklist] invalid line samples:', JSON.stringify(invalidSamples));
+  }
   console.log('[normalize-blacklist] discarded as redundant subdomains:', redundantSubdomains);
   console.log('[normalize-blacklist] output lines:', outputLines);
 }

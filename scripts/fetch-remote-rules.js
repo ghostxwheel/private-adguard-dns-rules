@@ -18,7 +18,12 @@ const SOURCES = [
     url: 'https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt',
     out: 'hostlists/lists.disconnect.me_simple_tracking.txt',
   },
-  { url: 'https://adblock.mahakala.is', out: 'hostlists/adblock.mahakala.is.txt' },
+  // The bare root URL serves an HTML landing page to browser User-Agents
+  // (it only serves the list to apps), so point at the list path directly.
+  // /hosts is the 10 MB edition (~326K domains); larger editions exist at
+  // /hosts-25mb, /hosts-50mb and /hosts-final, but the router (2GB RAM) has
+  // OOMed on oversized lists before.
+  { url: 'https://adblock.mahakala.is/hosts', out: 'hostlists/adblock.mahakala.is.txt' },
   {
     url: 'https://phishing.army/download/phishing_army_blocklist_extended.txt',
     out: 'hostlists/phishing_army_blocklist_extended.txt',
@@ -34,10 +39,13 @@ const HEADERS = {
 
 function looksBlocked(text) {
   if (!text || text.length < 100) return true;
-  const head = text.trim().slice(0, 200);
+  // Case-insensitive: servers commonly send lowercase "<!doctype html>",
+  // which a case-sensitive check let through into the compiled list.
+  const head = text.trim().slice(0, 1000).toLowerCase();
   return (
-    head.startsWith('<!DOCTYPE') ||
+    head.startsWith('<!doctype') ||
     head.startsWith('<html') ||
+    head.includes('<head>') ||
     text.includes('Just a moment') ||
     text.includes('Enable JavaScript and cookies to continue')
   );
